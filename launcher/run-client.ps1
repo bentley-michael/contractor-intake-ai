@@ -33,7 +33,7 @@ Get-Content $envFile | ForEach-Object {
 }
 
 # Small helper to mask secret values for debug output
-function Mask-Secret([string]$s) {
+function Protect-Secret([string]$s) {
   if ([string]::IsNullOrEmpty($s)) { return "" }
   if ($s.Length -le 8) { return "****" }
   return $s.Substring(0,4) + "..." + $s.Substring($s.Length - 4)
@@ -47,8 +47,8 @@ $llm = (Get-Item -Path Env:LLM_API_KEY -ErrorAction SilentlyContinue).Value
 
 Write-Host "Client: $clientName"
 Write-Host "SHEET_ID: $sheetId"
-Write-Host "DISCORD_WEBHOOK_URL: " (Mask-Secret $discord)
-Write-Host "LLM_API_KEY: " (Mask-Secret $llm)
+Write-Host "DISCORD_WEBHOOK_URL: " (Protect-Secret $discord)
+Write-Host "LLM_API_KEY: " (Protect-Secret $llm)
 
 Write-Host "Starting n8n for client '$Client' using env file: $envFile"
 & n8n

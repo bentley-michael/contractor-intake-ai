@@ -1,6 +1,6 @@
 ﻿```markdown
 
-# QUICKSTART — Contractor Intake (Vapi) MVP
+# QUICKSTART — Crawl Space & Foundation Repair Intake (Vapi) MVP
 
 Steps to run the packaged product locally and import into n8n.
 
@@ -11,13 +11,13 @@ Steps to run the packaged product locally and import into n8n.
 2) Launch n8n with the client env
 
 ```powershell
-.\products\contractor-intake-vapi-mvp\launcher\run-client.ps1 -Client <client>
+.\products\contractor-intake-crawlspace-mvp\launcher\run-client.ps1 -Client <client>
 ```
 
 3) Import the workflow into n8n
 
-	- Preferred: import `products\contractor-intake-vapi-mvp\workflows\workflow.json`
-	- If the import fails, use `products\contractor-intake-vapi-mvp\workflows\workflow.bundle.json` instead (array-wrapped export).
+	- Preferred: import `products\contractor-intake-crawlspace-mvp\workflows\workflow.json`
+	- If the import fails, use `products\contractor-intake-crawlspace-mvp\workflows\workflow.bundle.json` instead (array-wrapped export).
 
 4) Google Sheets setup
 
@@ -34,13 +34,13 @@ Troubleshooting
 - "Could not import file: does not contain valid JSON data"
   - Confirm you selected the correct file (`workflow.json` or `workflow.bundle.json`).
   - Try `workflow.bundle.json` (some n8n imports expect an array). 
-  - Validate the JSON locally: `python -c "import json,sys; json.load(open('products/contractor-intake-vapi-mvp/workflows/workflow.json','r',encoding='utf-8')); print('OK')"`
+  - Validate the JSON locally: `python -c "import json,sys; json.load(open('products/contractor-intake-crawlspace-mvp/workflows/workflow.json','r',encoding='utf-8')); print('OK')"`
   - Ensure files are saved as UTF-8 (no BOM) — edit in VS Code and re-save with UTF-8.
 
 - PSReadLine / console paste crash
   - Avoid pasting large heredocs into an interactive terminal (PowerShell PSReadLine sometimes crashes). Edit files in VS Code instead and re-run the launcher.
 
-If you need help with Google Sheets headers or sample .env values, open `products/contractor-intake-vapi-mvp/clients/example/.env.example`.
+If you need help with Google Sheets headers or sample .env values, open `products/contractor-intake-crawlspace-mvp/clients/example/.env.example`.
 
 Verify env vars loaded
 

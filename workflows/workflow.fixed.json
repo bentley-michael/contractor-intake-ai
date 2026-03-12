@@ -1,0 +1,728 @@
+{
+  "name": "Crawl Space & Foundation Repair Intake AI - Vapi MVP (Client Template)",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "SYSTEM PROMPT (Vapi):\n\nYou are a professional crawl space and foundation repair intake assistant.\n\nYour role is to:\n- Answer incoming calls\n- Collect crawl space and foundation repair job details\n- Identify moisture, standing water, mold, or structural concerns\n- Flag emergencies when water or active damage is mentioned\n- Never provide pricing or technical advice\n- Confirm contact information and next steps\n\nYou are not a sales representative.\nYou are not a technician.\n\nIf the caller mentions standing water, flooding, or active leaks:\n- Mark the job as an EMERGENCY.\n\nKeep calls under 3 minutes.\nBe calm, clear, and reassuring.",
+        "height": 450,
+        "width": 350,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1200,
+        -600
+      ],
+      "id": "bd439624-adcd-4172-b847-fc74b42f9ba5",
+      "name": "System Prompt"
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "vapi/intake",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -784,
+        -640
+      ],
+      "id": "a4396244-adea-4172-b847-fc74b42f9ba4",
+      "name": "Webhook - /vapi/intake",
+      "webhookId": "b0cdaad8-c441-43d5-96d6-0153880fb6c6"
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = $json;\nreturn [{\n  json: {\n    ...input,\n    _client_name: $env.CLIENT_NAME ?? '__CLIENT_NAME__',\n    _sheet_id: $env.SHEET_ID ?? '__SHEET_ID__',\n    _discord_webhook_url: $env.DISCORD_WEBHOOK_URL ?? '__DISCORD_WEBHOOK_URL__',\n    _junk_score_threshold: Number($env.JUNK_SCORE_THRESHOLD ?? '0.7')\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -320,
+        -640
+      ],
+      "id": "79217acc-73e5-40fc-8444-57bb0e045cd2",
+      "name": "Client Config"
+    },
+    {
+      "parameters": {
+        "jsCode": "const src = ($json.body && Object.keys($json.body).length) ? $json.body : $json;\n\nfunction s(v){ return (v ?? '').toString().trim(); }\n\nreturn [{\n  json: {\n    ...$json,\n    received_at: s(src.received_at) || new Date().toISOString(),\n    call_id: s(src.call_id),\n    from_number: s(src.from_number),\n    caller_name: s(src.caller_name),\n    email: s(src.email),\n\n    address: s(src.address),\n    city: s(src.city),\n    state: s(src.state),\n    zip: s(src.zip),\n\n    service_type: s(src.service_type),\n    issue: s(src.issue),\n    urgency: s(src.urgency),\n    preferred_contact: s(src.preferred_contact),\n    best_time_to_call: s(src.best_time_to_call || src.best_time),\n    notes: s(src.notes),\n\n    call_summary: s(src.call_summary),\n    recording_url: s(src.recording_url),\n    transcript_url: s(src.transcript_url),\n\n    spam: (src.spam && typeof src.spam === 'object') ? src.spam : ($json.spam ?? {})\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -560,
+        -640
+      ],
+      "id": "fcc205a3-3aaa-40e6-ab3c-801ff4ada50e",
+      "name": "Normalize Payload"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 1
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ ($json.spam?.is_junk === true) || (Number($json.spam?.score || 0) >= Number($json._junk_score_threshold || 0.7)) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "equals",
+                "singleValue": true
+              },
+              "id": "4ed6bcdc-455d-427f-83d2-ee0e8bd2c9ab"
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -336,
+        -368
+      ],
+      "id": "cd87b4a3-42b5-4f1e-abfd-c1e69277279c",
+      "name": "IF Junk?"
+    },
+    {
+      "parameters": {
+        "jsCode": "const t = ($json.transcript||'').toString(); const snippet = t.length>280 ? t.slice(0,280)+'…' : t; return [{ json: { received_at: $json.received_at, call_id: $json.call_id, from_number: $json.from_number, spam_score: $json.spam.score, spam_category: $json.spam.category, spam_reason: $json.spam.reason, transcript_snippet: snippet, recording_url: $json.recording_url } }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        -496
+      ],
+      "id": "6eb1e32e-29df-4598-b22c-86218a719f41",
+      "name": "Prepare Spam Row"
+    },
+    {
+      "parameters": {
+        "jsCode": "function clean(s){ return (s ?? '').toString().trim(); }\n\nconst loc = [clean($json.address), clean($json.city), clean($json.state), clean($json.zip)]\n  .filter(Boolean)\n  .join(', ');\n\nconst bestTime = clean($json.best_time_to_call || $json.best_time);\n\nconst lead = {\n  received_at: $json.received_at,\n  call_id: $json.call_id,\n  from_number: $json.from_number,\n  caller_name: clean($json.caller_name) || 'Unknown',\n  email: clean($json.email),\n  location: loc,\n  service_type: clean($json.service_type),\n  issue: clean($json.issue),\n  urgency: clean($json.urgency),\n  preferred_contact: clean($json.preferred_contact),\n  best_time: bestTime, // matches Google Sheet header\n  notes: clean($json.notes),\n  call_summary: clean($json.call_summary),\n  recording_url: clean($json.recording_url),\n  transcript_url: clean($json.transcript_url),\n  spam_score: $json.spam?.score,\n  spam_category: $json.spam?.category,\n  spam_reason: $json.spam?.reason\n};\n\nconst discordMsg =\n  '**NEW CRAWL SPACE / FOUNDATION REPAIR LEAD**\\n' +\n  '**Caller:** ' + lead.caller_name + ' (' + clean(lead.from_number) + ')\\n' +\n  (lead.email ? ('**Email:** ' + lead.email + '\\n') : '') +\n  (loc ? ('**Location:** ' + loc + '\\n') : '') +\n  (lead.service_type ? ('**Service / Issue Type:** ' + lead.service_type + '\\n') : '') +\n  (lead.issue ? ('**Issue:** ' + lead.issue + '\\n') : '') +\n  (lead.urgency ? ('**Urgency:** ' + lead.urgency + '\\n') : '') +\n  (lead.preferred_contact ? ('**Preferred contact:** ' + lead.preferred_contact + '\\n') : '') +\n  (bestTime ? ('**Best time:** ' + bestTime + '\\n') : '') +\n  (lead.notes ? ('**Notes:** ' + lead.notes + '\\n') : '') +\n  (lead.call_summary ? ('**Call summary:** ' + lead.call_summary + '\\n') : '') +\n  (lead.recording_url ? ('**Recording:** ' + lead.recording_url + '\\n') : '') +\n  (lead.transcript_url ? ('**Transcript URL:** ' + lead.transcript_url + '\\n') : '');\n\nreturn [{\n  json: {\n    // preserve everything (client config + spam object + any extra fields)\n    ...$json,\n\n    // overwrite/ensure the flattened lead fields are present for Sheets auto-map\n    ...lead,\n\n    // discord payload\n    _discord: discordMsg\n  }\n}];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -144,
+        -224
+      ],
+      "id": "7818d66a-bd25-4396-b6c8-945da306afe4",
+      "name": "Prepare Lead Row"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$json._discord_webhook_url}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "=json",
+        "bodyParameters": {
+          "parameters": [
+            {}
+          ]
+        },
+        "jsonBody": "=={{ \n  { \n    \"content\": $json._discord, \n    \"allowed_mentions\": { \"parse\": [] } \n  } \n}}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        144,
+        32
+      ],
+      "id": "b2a119c2-ed4f-4a87-9d12-d85d9e0dee31",
+      "name": "Discord - Lead Alert"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1l-vZAwAS77z4NxdDMyjFicSuCWys3XVO47mFxBLMqck",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Leads",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "call_id": "={{$json.call_id}}",
+            "received_at": "={{$json.received_at}}",
+            "from_number": "={{$json.from_number}}",
+            "caller_name": "={{$json.caller_name}}",
+            "email": "={{$json.email}}",
+            "location": "={{$json.location}}",
+            "service_type": "={{$json.service_type}}",
+            "issue": "={{$json.issue}}",
+            "urgency": "={{$json.urgency}}",
+            "preferred_contact": "={{$json.preferred_contact}}",
+            "best_time": "={{$json.best_time}}",
+            "notes": "={{$json.notes}}",
+            "call_summary": "={{$json.call_summary}}",
+            "recording_url": "={{$json.recording_url}}",
+            "transcript_url": "={{$json.transcript_url}}",
+            "spam_score": "={{$json.spam_score}}",
+            "spam_category": "={{$json.spam_category}}",
+            "spam_reason": "={{$json.spam_reason}}",
+            "data": "={{$json.data}}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "received_at",
+              "displayName": "received_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "call_id",
+              "displayName": "call_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "from_number",
+              "displayName": "from_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "caller_name",
+              "displayName": "caller_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "email",
+              "displayName": "email",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "service_type",
+              "displayName": "service_type",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "issue",
+              "displayName": "issue",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "urgency",
+              "displayName": "urgency",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "preferred_contact",
+              "displayName": "preferred_contact",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "best_time",
+              "displayName": "best_time",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "notes",
+              "displayName": "notes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "call_summary",
+              "displayName": "call_summary",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "recording_url",
+              "displayName": "recording_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "transcript_url",
+              "displayName": "transcript_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "spam_score",
+              "displayName": "spam_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "spam_category",
+              "displayName": "spam_category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "spam_reason",
+              "displayName": "spam_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "data",
+              "displayName": "data",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        96,
+        -224
+      ],
+      "id": "81c7cff2-e484-42b9-8631-81d66f5fc056",
+      "name": "Sheets - Append Lead Row",
+      "credentials": {
+        "googleApi": {
+          "id": "CtNoXrVfixrDStSM",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const spam = ($json.spam && typeof $json.spam === \"object\") ? $json.spam : {};\n\nreturn [{\n  json: {\n    ...$json,\n    spam: {\n      is_junk: spam.is_junk ?? false,\n      score: spam.score ?? 0,\n      category: spam.category ?? \"none\",\n      reason: spam.reason ?? \"\"\n    }\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -528,
+        -368
+      ],
+      "id": "1509fbb3-6175-471d-b58e-7006e45c3ee9",
+      "name": "Set Spam Default"
+    },
+    {
+      "parameters": {
+        "jsCode": "const url = ($json._discord_webhook_url || '').toString().trim();\nif (!url.startsWith('http')) {\n  throw new Error(`Missing DISCORD webhook URL. Got: \"${url}\"`);\n}\nreturn [{ json: $json }];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -256,
+        32
+      ],
+      "id": "c92ad808-a707-4942-af55-d5c820e476c4",
+      "name": "Assert Discord URL"
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    ...$json,\n    _debug_env: {\n      CLIENT_NAME: $env.CLIENT_NAME ?? \"\",\n      SHEET_ID: $env.SHEET_ID ?? \"\",\n      HAS_DISCORD_WEBHOOK_URL: !!($env.DISCORD_WEBHOOK_URL),\n      JUNK_SCORE_THRESHOLD: $env.JUNK_SCORE_THRESHOLD ?? \"\",\n      HAS_LLM_API_KEY: !!($env.LLM_API_KEY),\n    }\n  }\n}];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -752,
+        -368
+      ],
+      "id": "4c92e0bf-01f6-41fc-a598-4df899984060",
+      "name": "Debug Env Snapshot"
+    },
+    {
+      "parameters": {
+        "authentication": "serviceAccount",
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1l-vZAwAS77z4NxdDMyjFicSuCWys3XVO47mFxBLMqck",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "Spam",
+          "mode": "name"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "received_at",
+              "displayName": "received_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "call_id",
+              "displayName": "call_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "from_number",
+              "displayName": "from_number",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "spam_score",
+              "displayName": "spam_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "spam_category",
+              "displayName": "spam_category",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "spam_reason",
+              "displayName": "spam_reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "transcript_snippet",
+              "displayName": "transcript_snippet",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "recording_url",
+              "displayName": "recording_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4,
+      "position": [
+        240,
+        -496
+      ],
+      "id": "b25e38fd-6ad0-4fd0-a033-677e8d29e7b1",
+      "name": "Sheets - Append Spam Row",
+      "credentials": {
+        "googleApi": {
+          "id": "CtNoXrVfixrDStSM",
+          "name": "Google Service Account account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "2393b326-f8be-4f63-ae5a-dafd2647b79d",
+              "name": "discord_url_check",
+              "value": "={{$env.CONTRACTOR_INTAKE_DISCORD_WEBHOOK_URL || \"MISSING_ENV\"}}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -64,
+        32
+      ],
+      "id": "7206db96-3dcb-4bc2-915c-cf7579ce747d",
+      "name": "Set"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook - /vapi/intake": {
+      "main": [
+        [
+          {
+            "node": "Normalize Payload",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Client Config": {
+      "main": [
+        [
+          {
+            "node": "Debug Env Snapshot",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Payload": {
+      "main": [
+        [
+          {
+            "node": "Client Config",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IF Junk?": {
+      "main": [
+        [
+          {
+            "node": "Prepare Spam Row",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prepare Lead Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Spam Row": {
+      "main": [
+        [
+          {
+            "node": "Sheets - Append Spam Row",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Lead Row": {
+      "main": [
+        [
+          {
+            "node": "Sheets - Append Lead Row",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Assert Discord URL",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Discord - Lead Alert": {
+      "main": [
+        []
+      ]
+    },
+    "Set Spam Default": {
+      "main": [
+        [
+          {
+            "node": "IF Junk?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Assert Discord URL": {
+      "main": [
+        [
+          {
+            "node": "Set",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Debug Env Snapshot": {
+      "main": [
+        [
+          {
+            "node": "Set Spam Default",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set": {
+      "main": [
+        [
+          {
+            "node": "Discord - Lead Alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "e49cbfbc-9abc-454a-ad42-27c9d41aae63",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "010224661c742d1865b69991e2bbe63d851b2771c93c78181831a61e23d9a914"
+  },
+  "id": "nFnlfQs2qZbDEx9y",
+  "tags": []
+}
