@@ -1,0 +1,26 @@
+{
+  "event_id": "evt_demo_1042",
+  "call_id": "call_demo_7821",
+  "received_at": "2026-09-18T14:30:00Z",
+  "caller": {
+    "name": "Jordan Sample",
+    "phone": "+1-615-555-0142",
+    "email": "jordan@example.com"
+  },
+  "service_location": {
+    "city": "Murfreesboro",
+    "state": "TN",
+    "postal_code": "37130"
+  },
+  "request": {
+    "service": "Crawlspace inspection",
+    "summary": "Caller noticed standing water after heavy rain.",
+    "urgency": "high",
+    "preferred_contact": "text",
+    "best_time": "weekday afternoon"
+  },
+  "qualification": {
+    "status": "qualified",
+    "reason": "Service area and contact details confirmed"
+  }
+}
