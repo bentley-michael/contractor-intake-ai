@@ -47,7 +47,7 @@ Test run in n8n 2.35.7, sending events to the webhook:
 | No secret header | 401 |
 | Empty body | 400 |
 
-The first run showed an IF node letting bad secrets through. I switched it to the current condition format and reran all six cases.
+The first run showed an IF node letting bad secrets through. I switched it to the current condition format and reran all six cases. The full note is in [docs/DEBUGGING_NOTES.md](docs/DEBUGGING_NOTES.md).
 
 ## Implementation notes
 
