@@ -9,9 +9,9 @@ This repository documents a voice-intake and lead-routing prototype for home-ser
 | **Business problem** | Contractors miss calls while crews are on jobs. A missed call can mean a lost estimate. |
 | **What connects to what** | Vapi voice agent, webhook, n8n, Google Sheets, Discord. |
 | **My contribution** | Sole author of this repository. It documents the lead schema, routing rules, and failure handling. The n8n workflow itself stays private. |
-| **How it is tested** | The sample workflow in `examples/` was run in a local n8n 2.35.7 with six test events. Results are listed below. There is no automated test suite. |
+| **How it is tested** | The sample workflow in `examples/` was run in a local n8n 2.35.7 with six test events. Results are listed below. Six webhook tests in `tests/` run against the sample workflow in n8n, and GitHub Actions runs them on every push. |
 | **Status** | Prototype and ongoing development. No client results are claimed here. |
-| **Limitations** | The importable workflow is a simplified fictional sample, not the private build. The Google Sheets and Discord nodes are disabled in it. No automated test suite. The shared secret in the sample is a placeholder in code. Retries and error alerts are described in the architecture notes and are not in the sample. |
+| **Limitations** | The importable workflow is a simplified fictional sample, not the private build. The Google Sheets and Discord nodes are disabled in it. The tests cover the sample workflow only, not the Vapi, Google Sheets, or Discord steps. The shared secret in the sample is a placeholder in code. Retries and error alerts are described in the architecture notes and are not in the sample. |
 
 ## The problem
 
@@ -48,6 +48,17 @@ Test run in n8n 2.35.7, sending events to the webhook:
 | Empty body | 400 |
 
 The first run showed an IF node letting bad secrets through. I switched it to the current condition format and reran all six cases. The full note is in [docs/DEBUGGING_NOTES.md](docs/DEBUGGING_NOTES.md).
+
+### Run the tests
+
+Import and publish the sample workflow in n8n, start n8n, then run:
+
+```
+pip install -r requirements-dev.txt
+pytest -v tests
+```
+
+The tests send the six cases above to `http://127.0.0.1:5678/webhook/sample-intake`. They skip if nothing is listening. Set `WEBHOOK_URL` or `WEBHOOK_SECRET` to point them somewhere else. The workflow in `.github/workflows/ci.yml` does the same steps on every push.
 
 ## Implementation notes
 
