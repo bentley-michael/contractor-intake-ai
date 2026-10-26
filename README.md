@@ -75,7 +75,7 @@ A fictional event is included to show the data contract: [`examples/sample-intak
 
 ## What is intentionally not public
 
-The repository does not include the importable n8n workflow, voice-agent prompt, client configuration, launcher, webhook addresses, credentials, or production provisioning steps. Those stay private while the project is in development.
+The repository includes a simplified fictional sample workflow for evaluation. It does not include the private production n8n workflow, voice-agent prompt, client configuration, launcher, production webhook addresses, credentials, or production provisioning steps. Those stay private while the project is in development.
 
 ## Work with me
 
