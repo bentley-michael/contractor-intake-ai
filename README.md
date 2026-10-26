@@ -9,9 +9,9 @@ This repository documents a voice-intake and lead-routing prototype for home-ser
 | **Business problem** | Contractors miss calls while crews are on jobs. A missed call can mean a lost estimate. |
 | **What connects to what** | Vapi voice agent, webhook, n8n, Google Sheets, Discord. |
 | **My contribution** | Sole author of this repository. It documents the lead schema, routing rules, and failure handling. The n8n workflow itself stays private. |
-| **How it is tested** | The public repo has no automated tests. It includes one fictional event that shows the data contract. |
+| **How it is tested** | The sample workflow in `examples/` was run in a local n8n 2.35.7 with six test events. Results are listed below. There is no automated test suite. |
 | **Status** | Prototype and ongoing development. No client results are claimed here. |
-| **Limitations** | The importable workflow is not public, so a reader cannot run it. No automated test suite. Webhook authentication, retries, and error alerts are described as production safeguards in the architecture notes. They are not demonstrated in public code. |
+| **Limitations** | The importable workflow is a simplified fictional sample, not the private build. The Google Sheets and Discord nodes are disabled in it. No automated test suite. The shared secret in the sample is a placeholder in code. Retries and error alerts are described in the architecture notes and are not in the sample. |
 
 ## The problem
 
@@ -29,6 +29,25 @@ Contractors often miss calls while crews are on jobs or after the office closes.
 ```text
 Voice intake -> webhook -> normalize -> qualify -> record + alert
 ```
+
+## Sample workflow you can import
+
+`examples/sample-intake-workflow.json` is a fictional, credential-free n8n workflow with the same shape as the case study. In n8n, use Import from file.
+
+It checks a shared secret in the `x-webhook-secret` header, normalizes the call payload into the lead schema, and routes the result to qualified, junk, or invalid. The Google Sheets and Discord nodes are in place but disabled, because they need accounts. With them off, the qualified path returns the normalized lead as JSON.
+
+Test run in n8n 2.35.7, sending events to the webhook:
+
+| Case | Result |
+| --- | --- |
+| Valid call with a service request | 200, routed qualified, phone and email normalized |
+| No service and sales call wording | 200, routed junk with a reason |
+| Missing event id | 400, routed invalid with a reason |
+| Wrong secret | 401 |
+| No secret header | 401 |
+| Empty body | 400 |
+
+The first run showed an IF node letting bad secrets through. I switched it to the current condition format and reran all six cases.
 
 ## Implementation notes
 
