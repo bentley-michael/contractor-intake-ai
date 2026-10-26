@@ -55,7 +55,7 @@ def n8n_is_up():
 def test_qualified_lead_is_routed_and_normalized():
     status, text = post(EVENT)
     out = parsed(text)
-    assert status == 200
+    assert status == 200, text
     assert out["route"] == "qualified"
     assert out["lead"]["phone"] == "+16155550142"
     assert out["lead"]["email"] == "jordan@example.com"
@@ -67,7 +67,7 @@ def test_sales_call_is_routed_as_junk():
     event["request"]["summary"] = "Robocall about an extended warranty."
     status, text = post(event)
     out = parsed(text)
-    assert status == 200
+    assert status == 200, text
     assert out["route"] == "junk"
     assert out["reason"]
 
@@ -77,21 +77,21 @@ def test_missing_event_id_is_invalid():
     del event["event_id"]
     status, text = post(event)
     out = parsed(text)
-    assert status == 400
+    assert status == 400, text
     assert out["route"] == "invalid"
     assert out["error"]
 
 
 def test_wrong_secret_is_rejected():
-    status, _ = post(EVENT, secret="not-the-secret")
-    assert status == 401
+    status, text = post(EVENT, secret="not-the-secret")
+    assert status == 401, text
 
 
 def test_missing_secret_is_rejected():
-    status, _ = post(EVENT, secret=None)
-    assert status == 401
+    status, text = post(EVENT, secret=None)
+    assert status == 401, text
 
 
 def test_empty_body_is_rejected():
-    status, _ = post(None)
-    assert status == 400
+    status, text = post(None)
+    assert status == 400, text
