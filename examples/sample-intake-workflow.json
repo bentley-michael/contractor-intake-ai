@@ -1,0 +1,398 @@
+{
+  "name": "Sample missed-call intake (fictional)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "sample-intake",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "n1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        300
+      ],
+      "webhookId": "sample-intake-0001"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Sample only. In a real build, keep the secret in an n8n credential, not in code.\nconst EXPECTED = 'REPLACE_WITH_A_LONG_RANDOM_SECRET';\nconst got = $json.headers['x-webhook-secret'];\nreturn [{ json: { ...$json, secretOk: got === EXPECTED } }];"
+      },
+      "id": "n2",
+      "name": "Check shared secret",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.secretOk }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "n3",
+      "name": "Secret valid?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { error: 'unauthorized' } }}",
+        "options": {
+          "responseCode": 401
+        }
+      },
+      "id": "n4",
+      "name": "Respond 401",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        460
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalize the voice platform payload into one lead schema, then pick a route.\nconst body = $('Webhook').first().json.body || {};\nconst caller = body.caller || {};\nconst loc = body.service_location || {};\nconst req = body.request || {};\n\nconst lead = {\n  event_id: body.event_id || null,\n  call_id: body.call_id || null,\n  received_at: body.received_at || new Date().toISOString(),\n  name: (caller.name || '').trim(),\n  phone: (caller.phone || '').replace(/[^\\d+]/g, ''),\n  email: (caller.email || '').trim().toLowerCase(),\n  city: loc.city || '',\n  state: loc.state || '',\n  postal_code: loc.postal_code || '',\n  service: (req.service || '').trim(),\n  summary: (req.summary || '').trim(),\n  urgency: req.urgency || 'normal',\n  preferred_contact: req.preferred_contact || 'phone',\n  best_time: req.best_time || '',\n};\n\nlet route = 'qualified';\nlet reason = 'Contact details and service request present';\n\nif (!lead.event_id || !lead.phone) {\n  route = 'invalid';\n  reason = 'Missing event_id or caller phone';\n} else if (!lead.service || /(warranty|survey|robocall|solicit)/i.test(lead.summary)) {\n  route = 'junk';\n  reason = 'No service requested or looks like a sales call';\n}\n\nreturn [{ json: { route, reason, lead } }];"
+      },
+      "id": "n5",
+      "name": "Normalize and route",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "qualified",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "qualified"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "junk",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "junk"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict"
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "invalid",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "invalid"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "n6",
+      "name": "Route",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3,
+      "position": [
+        880,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "YOUR_SHEET_ID"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Leads"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {}
+        },
+        "options": {}
+      },
+      "id": "n7",
+      "name": "Append to Google Sheet (disabled in sample)",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        1120,
+        160
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "webhookUri": "YOUR_DISCORD_WEBHOOK_URL",
+        "text": "=New lead: {{ $json.lead.name }} {{ $json.lead.phone }} for {{ $json.lead.service }}. Urgency {{ $json.lead.urgency }}."
+      },
+      "id": "n8",
+      "name": "Discord alert (disabled in sample)",
+      "type": "n8n-nodes-base.discord",
+      "typeVersion": 2,
+      "position": [
+        1340,
+        160
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { route: 'qualified', reason: $('Normalize and route').item.json.reason, lead: $('Normalize and route').item.json.lead } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "n9",
+      "name": "Respond qualified",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1560,
+        160
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { route: 'junk', reason: $json.reason, event_id: $json.lead.event_id } }}",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "n10",
+      "name": "Respond junk",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { route: 'invalid', error: $json.reason } }}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "n11",
+      "name": "Respond invalid",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        480
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## Sample intake workflow\nFictional example. No credentials, no client data.\nThe Google Sheets and Discord nodes are disabled because they need accounts. Enable them and add credentials to use them.",
+        "height": 140,
+        "width": 520
+      },
+      "id": "n12",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -20
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Check shared secret",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check shared secret": {
+      "main": [
+        [
+          {
+            "node": "Secret valid?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Secret valid?": {
+      "main": [
+        [
+          {
+            "node": "Normalize and route",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond 401",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize and route": {
+      "main": [
+        [
+          {
+            "node": "Route",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Route": {
+      "main": [
+        [
+          {
+            "node": "Append to Google Sheet (disabled in sample)",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond junk",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond invalid",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Append to Google Sheet (disabled in sample)": {
+      "main": [
+        [
+          {
+            "node": "Discord alert (disabled in sample)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Discord alert (disabled in sample)": {
+      "main": [
+        [
+          {
+            "node": "Respond qualified",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "id": "sampleintake01",
+  "pinData": {}
+}
