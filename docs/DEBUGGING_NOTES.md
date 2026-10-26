@@ -41,4 +41,4 @@ I reran all six cases and each one behaved as expected.
 
 ## Limits
 
-These six cases were run by hand with curl. There is no automated test suite for this workflow yet.
+The six cases were first run by hand with curl. They are now automated in `tests/test_sample_workflow.py` and run in GitHub Actions on every push. The tests cover the sample workflow only.
