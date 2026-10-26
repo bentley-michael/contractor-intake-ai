@@ -11,6 +11,7 @@ Environment variables:
 """
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -46,10 +47,20 @@ def parsed(text):
 
 @pytest.fixture(scope="module", autouse=True)
 def n8n_is_up():
-    try:
-        post({}, secret="probe")
-    except (urllib.error.URLError, ConnectionError, TimeoutError):
-        pytest.skip(f"No n8n webhook listening at {URL}")
+    """Skip when nothing listens. Otherwise wait for the webhook to register.
+
+    n8n answers its health check before it registers webhooks, so requests
+    sent right after startup get a 404 for a short time.
+    """
+    deadline = time.time() + 60
+    while True:
+        try:
+            status, _ = post({}, secret="probe")
+        except (urllib.error.URLError, ConnectionError, TimeoutError):
+            pytest.skip(f"No n8n webhook listening at {URL}")
+        if status != 404 or time.time() > deadline:
+            return
+        time.sleep(1)
 
 
 def test_qualified_lead_is_routed_and_normalized():
