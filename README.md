@@ -1,6 +1,17 @@
 # Contractor Intake Automation
 
-This repository documents a voice-intake and lead-routing system built for home-service contractors. It is a portfolio case study, not a downloadable copy of the production workflow.
+This repository documents a voice-intake and lead-routing prototype for home-service contractors. It is a sanitized portfolio case study. It is not a downloadable copy of the working n8n workflow, and it is not a record of a commercial deployment.
+
+## At a glance
+
+| | |
+| --- | --- |
+| **Business problem** | Contractors miss calls while crews are on jobs. A missed call can mean a lost estimate. |
+| **What connects to what** | Vapi voice agent, webhook, n8n, Google Sheets, Discord. |
+| **My contribution** | Sole author of this repository. It documents the lead schema, routing rules, and failure handling. The n8n workflow itself stays private. |
+| **How it is tested** | The public repo has no automated tests. It includes one fictional event that shows the data contract. |
+| **Status** | Prototype and ongoing development. No client results are claimed here. |
+| **Limitations** | The importable workflow is not public, so a reader cannot run it. No automated test suite. Webhook authentication, retries, and error alerts are described as production safeguards in the architecture notes. They are not demonstrated in public code. |
 
 ## The problem
 
@@ -34,7 +45,7 @@ A fictional event is included to show the data contract: [`examples/sample-intak
 
 ## What is intentionally not public
 
-The repository does not include the importable n8n workflow, voice-agent prompt, client configuration, launcher, webhook addresses, credentials, or production provisioning steps. Those are part of the implementation delivered to a client.
+The repository does not include the importable n8n workflow, voice-agent prompt, client configuration, launcher, webhook addresses, credentials, or production provisioning steps. Those stay private while the project is in development.
 
 ## Work with me
 
