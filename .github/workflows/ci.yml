@@ -1,0 +1,55 @@
+name: workflow tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  webhook-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      N8N_USER_FOLDER: ${{ github.workspace }}/.n8n-home
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_SECURE_COOKIE: "false"
+      N8N_LISTEN_ADDRESS: 127.0.0.1
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install n8n
+        run: npm install --prefix "$RUNNER_TEMP/n8n" n8n@2.35.7 --legacy-peer-deps --no-audit --no-fund
+
+      - name: Import and publish the sample workflow
+        run: |
+          N8N="$RUNNER_TEMP/n8n/node_modules/.bin/n8n"
+          "$N8N" import:workflow --input=examples/sample-intake-workflow.json
+          "$N8N" publish:workflow --id=sampleintake01
+
+      - name: Start n8n
+        run: |
+          nohup "$RUNNER_TEMP/n8n/node_modules/.bin/n8n" start > "$RUNNER_TEMP/n8n.log" 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf http://127.0.0.1:5678/healthz && exit 0
+            sleep 3
+          done
+          cat "$RUNNER_TEMP/n8n.log"
+          exit 1
+
+      - name: Run webhook tests
+        run: |
+          pip install -r requirements-dev.txt
+          pytest -v tests
+
+      - name: Show n8n log on failure
+        if: failure()
+        run: cat "$RUNNER_TEMP/n8n.log"
